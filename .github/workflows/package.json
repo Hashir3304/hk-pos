@@ -1,0 +1,38 @@
+{
+  "name": "hk-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HK POS – Free Offline Windows POS (Electron + SQLite + ESC/POS)",
+  "main": "main.js",
+  "author": "HK",
+  "scripts": {
+    "start": "electron .",
+    "seed": "node src/seed.js",
+    "win": "electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "com.hkpos.app",
+    "productName": "HK POS",
+    "directories": { "output": "dist" },
+    "files": ["**/*", "!dist/**/*"],
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "publisherName": "HK" },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "HK POS"
+    }
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.5",
+    "csv-parse": "^5.5.6",
+    "csv-stringify": "^6.5.2",
+    "escpos": "^4.0.0-beta.7",
+    "escpos-usb": "^4.0.0-beta.5"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3"
+  }
+}
