@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>HK POS</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header>
+    <div class="flex">
+      <img id="logo" class="logo" />
+      <h1 id="bizname">HK POS</h1><small id="statusbar">Offline</small>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="sales">Sales</div>
+      <div class="tab" data-tab="products">Products</div>
+      <div class="tab" data-tab="reports">Reports</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- SALES -->
+    <div id="sales" class="section active">
+      <div class="card">
+        <h3>Quick Keys (Services & Popular Items)</h3>
+        <div id="quickkeys" class="grid"></div>
+        <h3 style="margin-top:12px">Find / Scan</h3>
+        <input id="search" placeholder="Scan barcode or type name..." />
+        <div class="list" id="results"></div>
+        <div class="flex" style="margin-top:8px">
+          <button id="addCustom" class="primary">Add Custom Item</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Cart <small style="color:#9aa1ad">Prices exclude tax</small></h3>
+        <table class="table" id="cart">
+          <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="status" id="cartStatus"></div>
+      </div>
+
+      <div class="card right">
+        <h3>Totals</h3>
+        <div>Subtotal: $<span id="subtotal">0.00</span></div>
+        <div id="taxRows"></div>
+        <div class="total">Grand Total: $<span id="grand">0.00</span></div>
+
+        <h3 style="margin-top:16px">Payment</h3>
+        <select id="method">
+          <option value="cash">Cash</option>
+          <option value="card_external">Debit (card terminal)</option>
+          <option value="etransfer">E-Transfer</option>
+        </select>
+        <div class="flex" style="margin-top:8px">
+          <input type="number" id="amount" placeholder="Amount received" step="0.01">
+          <button class="primary" id="pay">Complete Sale (Enter)</button>
+        </div>
+        <div class="flex" style="margin-top:8px">
+          <button id="kick">Open Cash Drawer</button>
+          <button id="printLast">Reprint Last Receipt</button>
+        </div>
+        <div class="status" id="status"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div id="products" class="section">
+      <div class="card">
+        <h3>Add / Edit Product or Service</h3>
+        <div class="flex" style="flex-wrap:wrap">
+          <input id="p_id" placeholder="ID (auto)" disabled>
+          <input id="p_sku" placeholder="SKU/Barcode (blank for services)">
+          <input id="p_name" placeholder="Name">
+          <input id="p_price" type="number" step="0.01" placeholder="Price (before tax)">
+          <input id="p_cost" type="number" step="0.01" placeholder="Cost (optional)">
+          <input id="p_stock" type="number" step="1" placeholder="Stock (0 for services)">
+          <label><input id="p_quick" type="checkbox"> Quick Key</label>
+          <select id="p_tax"></select>
+          <button id="saveProd" class="primary">Save</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Product List</h3>
+        <div class="flex">
+          <button id="exportCSV">Export CSV</button>
+          <input type="file" id="importFile">
+          <button id="importCSV">Import CSV</button>
+        </div>
+        <div class="list" id="plist"></div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="reports" class="section">
+      <div class="card">
+        <h3>Daily Summary</h3>
+        <input id="r_date" type="date">
+        <button id="r_load">Load</button>
+        <div id="r_out" class="list"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings" class="section">
+      <div class="card">
+        <h3>Business Profile</h3>
+        <input id="s_name" placeholder="Business Name">
+        <label class="flex"><input id="s_round" type="checkbox"> Round cash totals to nearest $0.05</label>
+        <button id="s_save" class="primary">Save</button>
+        <div class="status">Name updates live. (Logo on receipt coming next phase.)</div>
+      </div>
+
+      <div class="card">
+        <h3>Tax Profiles (per product)</h3>
+        <div class="flex" style="flex-wrap:wrap">
+          <input id="t_id" placeholder="ID (auto)" disabled>
+          <input id="t_name" placeholder="Name e.g. GST+PST">
+          <input id="t_json" placeholder='Rates JSON e.g. {"GST":0.05,"PST":0.07}'>
+          <button id="t_save">Save Profile</button>
+        </div>
+        <div id="t_list" class="list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Backups</h3>
+        <button id="b_now">Backup Now</button>
+        <div class="status">Auto daily backups rotate in the local backups folder.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN Modal -->
+  <div id="pinModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center">
+    <div class="card" style="width:360px">
+      <h3>Manager PIN Required</h3>
+      <input id="pinInput" placeholder="Enter PIN" type="password">
+      <div class="flex" style="margin-top:8px">
+        <button id="pinOk" class="primary">OK</button>
+        <button id="pinCancel">Cancel</button>
+      </div>
+      <div class="status" id="pinMsg"></div>
+    </div>
+  </div>
+
+  <div class="footer">Shortcuts: F2 Search • +/- Qty • Ctrl+D Discount (PIN) • Ctrl+R Refund (PIN) • Ctrl+Shift+K Open Drawer • Enter Complete</div>
+  <script src="renderer.js"></script>
+</body>
+</html>
