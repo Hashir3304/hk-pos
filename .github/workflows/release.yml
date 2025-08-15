@@ -23,7 +23,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       # Rebuild any native modules (better-sqlite3, escpos-usb) for Electron
-      - name: Rebuild native modules
+      - name: Rebuild native modules for Electron
         run: npx electron-builder install-app-deps
 
       - name: Build Windows installer
