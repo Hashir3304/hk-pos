@@ -1,77 +1,61 @@
-// ESC/POS printing + Cash Drawer (Epson TM-T88V or compatible)
-const escpos = require('escpos');
-escpos.USB = require('escpos-usb');
+// src/printing.js
+const escpos = require('escpos'); escpos.USB = require('escpos-usb');
+const fs = require('fs');
+const path = require('path');
+const { getSettings } = require('./db');
+const Database = require('better-sqlite3');
+const db = new Database(path.join(process.cwd(),'hkpos.db'));
 
 function _getDevice(){
   try {
-    const device = new escpos.USB(); // default USB thermal printer
-    const options = { encoding: "GB18030" };
-    const printer = new escpos.Printer(device, options);
+    const device = new escpos.USB(); // Epson TM-T88V over USB
+    const printer = new escpos.Printer(device, { width: 48 });
     return { device, printer };
-  } catch (e) {
-    return null;
-  }
+  } catch { return null; }
 }
-function _fetchSaleData(sale_id){
-  const Database = require('better-sqlite3');
-  const path = require('path');
-  const dbPath = path.join(require('electron').app.getPath('userData'), 'hkpos.db');
-  const sdb = new Database(dbPath);
-  const sale = sdb.prepare('SELECT * FROM sales WHERE id=?').get(sale_id);
-  const items = sdb.prepare('SELECT qty, unit_price, line_total, name, product_id FROM sale_items WHERE sale_id=?').all(sale_id);
-  const withNames = items.map(it=>{
-    if(it.name) return it;
-    const p = sdb.prepare('SELECT name FROM products WHERE id=?').get(it.product_id||-1);
-    return { ...it, name: (p && p.name) ? p.name : 'Item' };
+
+async function kickDrawer(){
+  const dev = _getDevice(); if(!dev) return false;
+  const { device, printer } = dev;
+  return new Promise(resolve=>{
+    device.open(()=>{ printer.cashdraw(); printer.close(); resolve(true); });
   });
-  const settingsRows = sdb.prepare('SELECT key,value FROM settings').all();
-  const settings = settingsRows.reduce((m,r)=> (m[r.key]=r.value,m), {});
-  return { sale, items: withNames, settings };
 }
 
 async function printReceipt(sale_id){
-  const dev = _getDevice();
-  if(!dev) throw new Error('Printer not found');
+  const dev = _getDevice(); if(!dev) return false;
   const { device, printer } = dev;
+  const s = getSettings();
+  const sale = db.prepare('SELECT * FROM sales WHERE id=?').get(sale_id);
+  const items = db.prepare('SELECT * FROM sale_items WHERE sale_id=?').all(sale_id);
 
-  const { sale, items, settings } = _fetchSaleData(sale_id);
-  const name = settings.business_name || 'HK POS';
-
-  device.open(()=>{
-    printer
-      .align('ct')
-      .style('b').size(1,1).text(name).size(0,0).style('normal')
-      .text(new Date().toLocaleString())
-      .text('--------------------------------')
-      .align('lt');
-
-    items.forEach(it=>{
-      const line = (it.qty * it.unit_price).toFixed(2);
-      printer.text(`${it.qty} x ${it.name}`);
-      printer.text(`   @ ${it.unit_price.toFixed(2)}   = ${line}`);
+  return new Promise(resolve=>{
+    device.open(async ()=>{
+      printer.align('ct');
+      // logo (best effort)
+      try{
+        const logo = s.logo_path && fs.existsSync(s.logo_path) ? s.logo_path : path.join(process.cwd(), 'assets', 'hkpos-logo.svg');
+        if (fs.existsSync(logo)) {
+          const img = await escpos.Image.load(logo);
+          printer.raster(img, 'dwdh');
+        }
+      }catch{}
+      printer.style('b').text(s.business_name || 'HK POS').style('normal');
+      printer.text(new Date(sale.ts).toLocaleString());
+      printer.drawLine();
+      printer.align('lt');
+      for (const i of items) {
+        printer.text(`${i.qty} x ${i.name}   $${(i.price*i.qty).toFixed(2)}`);
+      }
+      printer.drawLine();
+      printer.text(`Subtotal: $${sale.subtotal.toFixed(2)}`);
+      printer.text(`GST:      $${sale.gst.toFixed(2)}   PST: $${sale.pst.toFixed(2)}`);
+      printer.style('b').text(`TOTAL:    $${sale.total.toFixed(2)}`).style('normal');
+      printer.text(`Paid: ${sale.method.toUpperCase()}`);
+      printer.newLine(); printer.cut(); printer.close();
+      resolve(true);
     });
-
-    printer.text('--------------------------------');
-    printer.text(`Subtotal: ${sale.subtotal.toFixed(2)}`);
-    printer.text(`Tax:      ${sale.tax_total.toFixed(2)}`);
-    printer.size(1,1).text(`TOTAL:   ${sale.grand_total.toFixed(2)}`).size(0,0);
-    printer.text('All prices shown are before tax.');
-    printer.text('Thank you!');
-    printer.cut().close();
   });
-  return { ok:true };
-}
-
-function kickDrawer(){
-  const dev = _getDevice();
-  if(!dev) throw new Error('Printer not found');
-  const { device, printer } = dev;
-  device.open(()=>{
-    if (typeof printer.cashdraw === 'function') printer.cashdraw(2);
-    else { printer.hardware('cashdraw'); }
-    printer.close();
-  });
-  return { ok:true };
 }
 
 module.exports = { printReceipt, kickDrawer };
